@@ -1,0 +1,51 @@
+name: Auto Unzip Workflow
+
+on:
+  push:
+    paths:
+      - '**.zip' # Berjalan otomatis saat ada file .zip yang di-upload
+
+jobs:
+  unzip-and-commit:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Memberikan izin ke workflow untuk mengubah/commit file
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Ekstrak File ZIP Otomatis
+        run: |
+          # Cari semua file .zip yang ada di repository
+          ZIP_FILES=$(find . -maxdepth 2 -name "*.zip")
+          
+          if [ -z "$ZIP_FILES" ]; then
+            echo "Tidak ada file zip yang ditemukan."
+            exit 0
+          fi
+
+          for ZIP_FILE in $ZIP_FILES; do
+            echo "Mengekstrak $ZIP_FILE..."
+            # Ekstrak file zip langsung ke direktori tempat zip itu berada (tanpa membuat folder ekstra)
+            unzip -o "$ZIP_FILE" -d "$(dirname "$ZIP_FILE")"
+            
+            # Hapus file zip asli setelah diekstrak
+            rm "$ZIP_FILE"
+          done
+
+      - name: Commit & Push Hasil Ekstrak
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add .
+          
+          # Cek apakah ada perubahan setelah ekstrak
+          if git diff --staged --quiet; then
+            echo "Tidak ada file baru untuk di-commit."
+          else
+            git commit -m "Auto-unzip file zip via GitHub Action"
+            git push
+          fi
